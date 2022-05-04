@@ -1,3 +1,5 @@
+import dayjs from "dayjs"
+
 export class Tweet
 {
     constructor (publicKey, accountData) {
@@ -16,4 +18,13 @@ export class Tweet
         const author = this.author.toBase58()
         return author.slice(0,4) + '..' + author.slice(-4)
     }
+
+    get created_at () {
+        return dayjs.unix(this.timestamp).format('lll')
+    }
+
+    get created_ago () {
+        return dayjs.unix(this.timestamp).fromNow()
+    }
+
 }
