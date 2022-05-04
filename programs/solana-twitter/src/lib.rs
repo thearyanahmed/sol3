@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::system_program;
+use anchor_lang::solana_program::entrypoint::ProgramResult;
 
 declare_id!("HqsiivaPH3nR31xzsmht43Y1p2y9Vud7hJ9CUSVGnG3t");
 
@@ -11,7 +13,6 @@ const MAX_CONTENT_LENGTH: usize = 280 * 4; // 280 chars max.
 
 #[program]
 pub mod solana_twitter {
-    use anchor_lang::solana_program::entrypoint::ProgramResult;
     use super::*;
 
     pub fn send_tweet(ctx: Context<SendTweet>, topic: String, content: String) -> ProgramResult {
@@ -24,7 +25,6 @@ pub mod solana_twitter {
             return Err(ErrorCode::ContentTooLong.into());
         }
 
-
         let tweet: &mut Account<Tweet> = &mut ctx.accounts.tweet;
         let author: &Signer = &ctx.accounts.author;
         let clock: Clock = Clock::get().unwrap();
@@ -33,7 +33,6 @@ pub mod solana_twitter {
         tweet.timestamp = clock.unix_timestamp;
         tweet.topic = topic;
         tweet.content = content;
-
 
 
         Ok(())
@@ -56,6 +55,12 @@ pub enum ErrorCode {
     TopicTooLong,
     #[msg("the provided content should be 280 characters long maximum.")]
     ContentTooLong,
+}
+
+impl From<ErrorCode> for anchor_lang::prelude::ProgramError {
+    fn from(t: ErrorCode) -> Self {
+        ProgramError::from(t)
+    }
 }
 
 #[account]
