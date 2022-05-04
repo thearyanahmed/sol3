@@ -51,15 +51,15 @@ pub struct SendTweet <'info> {
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("the provided topic should be 50 characters long maximum.")]
+    #[msg("The provided topic should be 50 characters long maximum.")]
     TopicTooLong,
-    #[msg("the provided content should be 280 characters long maximum.")]
+    #[msg("The provided content should be 280 characters long maximum.")]
     ContentTooLong,
 }
 
 impl From<ErrorCode> for anchor_lang::prelude::ProgramError {
     fn from(t: ErrorCode) -> Self {
-        t.into()
+        ProgramError::Custom(t.into())
     }
 }
 

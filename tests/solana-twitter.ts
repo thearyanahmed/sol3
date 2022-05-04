@@ -1,6 +1,7 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { SolanaTwitter } from "../target/types/solana_twitter";
+import * as assert from "assert";
 
 describe("solana-twitter", () => {
   // Configure the client to use the local cluster.
@@ -11,7 +12,12 @@ describe("solana-twitter", () => {
     it("can send a new tweet", async () => {
         const tweet = anchor.web3.Keypair.generate();
 
-        await program.rpc.sendTweet("topic","content", {
+        const t = {
+            topic: "welcome",
+            content: "Hello world!"
+        }
+
+        await program.rpc.sendTweet(t.topic,t.content, {
             accounts: {
                tweet: tweet.publicKey,
                author: program.provider.wallet.publicKey,
@@ -22,9 +28,107 @@ describe("solana-twitter", () => {
             ]
         });
 
+        // Fetch the account details of the created tweet.
+        const tweetAccount = await program.account.tweet.fetch(tweet.publicKey);
+
+        assert.equal(tweetAccount.author.toBase58(), program.provider.wallet.publicKey.toBase58());
+        assert.equal(tweetAccount.topic, t.topic);
+        assert.equal(tweetAccount.content, t.content);
+        assert.ok(tweetAccount.timestamp);
+    })
+
+    it("can send a new tweet without topic", async() => {
+         const tweet = anchor.web3.Keypair.generate();
+
+            const t = {
+                topic: "",
+                content: "Hello world!"
+            }
+
+            await program.rpc.sendTweet(t.topic,t.content, {
+                accounts: {
+                   tweet: tweet.publicKey,
+                   author: program.provider.wallet.publicKey,
+                   systemProgram: anchor.web3.SystemProgram.programId,
+                },
+                signers: [
+                    tweet
+                ]
+            });
+
+            // Fetch the account details of the created tweet.
+            const tweetAccount = await program.account.tweet.fetch(tweet.publicKey);
+
+            assert.equal(tweetAccount.author.toBase58(), program.provider.wallet.publicKey.toBase58());
+            assert.equal(tweetAccount.topic, t.topic);
+            assert.equal(tweetAccount.content, t.content);
+            assert.ok(tweetAccount.timestamp);
+    })
+
+    it('can send a new tweet from a different author', async () => {
+        // Generate another user and airdrop them some SOL.
+        const otherUser = anchor.web3.Keypair.generate();
+        const signature = await program.provider.connection.requestAirdrop(otherUser.publicKey, 1000000000);
+        await program.provider.connection.confirmTransaction(signature);
+
+        // Call the "SendTweet" instruction on behalf of this other user.
+        const tweet = anchor.web3.Keypair.generate();
+        await program.rpc.sendTweet('veganism', 'Yay Tofu!', {
+            accounts: {
+                tweet: tweet.publicKey,
+                author: otherUser.publicKey,
+                systemProgram: anchor.web3.SystemProgram.programId,
+            },
+            signers: [otherUser, tweet],
+        });
 
         // Fetch the account details of the created tweet.
         const tweetAccount = await program.account.tweet.fetch(tweet.publicKey);
-        console.log(tweetAccount);
-    })
+
+        // Ensure it has the right data.
+        assert.equal(tweetAccount.author.toBase58(), otherUser.publicKey.toBase58());
+        assert.equal(tweetAccount.topic, 'veganism');
+        assert.equal(tweetAccount.content, 'Yay Tofu!');
+        assert.ok(tweetAccount.timestamp);
+    });
+
+    it('cannot provide a topic with more than 50 characters', async () => {
+        try {
+            const tweet = anchor.web3.Keypair.generate();
+            const topicWith51Chars = 'x'.repeat(51);
+            await program.rpc.sendTweet(topicWith51Chars, 'Hummus, am I right?', {
+                accounts: {
+                    tweet: tweet.publicKey,
+                    author: program.provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId,
+                },
+                signers: [tweet],
+            });
+        } catch (error) {
+            assert.equal(error.msg, 'The provided topic should be 50 characters long maximum.');
+            return;
+        }
+
+        assert.fail('The instruction should have failed with a 51-character topic.');
+    });
+
+    it('cannot provide a content with more than 280 characters', async () => {
+        try {
+            const tweet = anchor.web3.Keypair.generate();
+            const contentWith281Chars = 'x'.repeat(281);
+            await program.rpc.sendTweet('veganism', contentWith281Chars, {
+                accounts: {
+                    tweet: tweet.publicKey,
+                    author: program.provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId,
+                },
+                signers: [tweet],
+            });
+        } catch (error) {
+            assert.equal(error.msg, 'The provided content should be 280 characters long maximum.');
+            return;
+        }
+
+        assert.fail('The instruction should have failed with a 281-character content.');
+    });
 });
