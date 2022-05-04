@@ -59,7 +59,7 @@ pub enum ErrorCode {
 
 impl From<ErrorCode> for anchor_lang::prelude::ProgramError {
     fn from(t: ErrorCode) -> Self {
-        ProgramError::from(t)
+        t.into()
     }
 }
 
